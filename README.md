@@ -24,13 +24,16 @@ From the directory containing `RandOpt/`:
 | **Run** | `docker run -it --gpus all randopt-vllm:latest bash` |
 | **Run** (with data) | `docker run -it --gpus all -v /path/to/RandOpt/data:/workspace/data randopt-vllm:latest bash` |
 
-## Download Data
-
-Please follow the instructions [data/README.md](data/README.md)
 
 ## Run RandOpt
 
-From the `RandOpt` directory:
+### Post-train on your own dataset
+Please follow the instructions [CUSTOM_DATASET_GUIDE.md](CUSTOM_DATASET_GUIDE.md)
+
+### Post-train on a standard dataset
+First download the data here: [data/README.md](data/README.md)
+
+Then, from the `RandOpt` directory:
 
 | Mode | Command |
 |------|---------|
@@ -38,10 +41,5 @@ From the `RandOpt` directory:
 | **Multiple nodes** | `sbatch scripts/multiple_nodes.sh` |
 | **Local** (no Slurm) | `bash scripts/local_run.sh` |
 
-
-
 ## Run Baselines
 Please follow the instructions [baselines/README.md](baselines/README.md)
-
-## Use your own dataset
-Please follow the instructions [CUSTOM_DATASET_GUIDE.md](CUSTOM_DATASET_GUIDE.md)
