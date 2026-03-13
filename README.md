@@ -1,9 +1,9 @@
 # RandOpt
-**[Neural Thickets: Diverse Task Experts Are Dense Around Pretrained Weights](https://arxiv.org/pdf/2603.12228)**
+**Neural Thickets: Diverse Task Experts Are Dense Around Pretrained Weights**
 
 [Yulu Gan](https://yulugan.com), [Phillip Isola](https://web.mit.edu/phillipi/)
 
-Starting with a 1D Experiment: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1SsBrfQ-iFKuGElWjTNiFoX4dtMaCzCGy?usp=sharing)
+[Paper](https://arxiv.org/pdf/2603.12228)          |         [Project Page](https://thickets.mit.edu)    |        Starting with a 1D Experiment: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1SsBrfQ-iFKuGElWjTNiFoX4dtMaCzCGy?usp=sharing)
 
 
 ## Requirements
