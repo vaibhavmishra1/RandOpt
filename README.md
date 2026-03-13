@@ -1,5 +1,5 @@
 # RandOpt
-**Neural Thickets: Diverse Task Experts Are Dense Around Pretrained Weights**
+**[Neural Thickets: Diverse Task Experts Are Dense Around Pretrained Weights](https://arxiv.org/pdf/2603.12228)**
 
 [Yulu Gan](https://yulugan.com), [Phillip Isola](https://web.mit.edu/phillipi/)
 
@@ -43,3 +43,17 @@ Then, from the `RandOpt` directory:
 
 ## Run Baselines
 Please follow the instructions [baselines/README.md](baselines/README.md)
+
+
+## Citation
+```bib
+@misc{gan2026neuralthickets,
+      title={Neural Thickets: Diverse Task Experts Are Dense Around Pretrained Weights}, 
+      author={Yulu Gan and Phillip Isola},
+      year={2026},
+      eprint={2603.12228},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2603.12228}, 
+}
+```
