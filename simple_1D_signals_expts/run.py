@@ -12,21 +12,21 @@ import torch
 
 import copy
 
-from toy_expts_v4 import datasets
-from toy_expts_v4 import models
-from toy_expts_v4 import pretrain
-from toy_expts_v4 import posttrain
-from toy_expts_v4 import eval
+from simple_1D_signals_expts import datasets
+from simple_1D_signals_expts import models
+from simple_1D_signals_expts import pretrain
+from simple_1D_signals_expts import posttrain
+from simple_1D_signals_expts import eval
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description="Toy Expt v3", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    
+
     # Datasets
     p.add_argument("--pretrain_dataset", type=str, default=None)
     p.add_argument("--posttrain_dataset", type=str, default=None)
     p.add_argument("--test_dataset", type=str, default=None)
     p.add_argument("--res_x", type=float, default=0.1)
-    
+
     # Pretraining
     p.add_argument("--pretrain_bsz", type=int, default=256)
     p.add_argument("--posttrain_dataset_sz", type=int, default=1024)
@@ -34,13 +34,13 @@ def parse_args(argv=None):
     p.add_argument("--pretraining_lr", type=float, default=0.001)
     p.add_argument("--test_bsz", type=int, default=256)
     p.add_argument("--base_init", type=str, default="xavier")
-    
+
     # Model
     p.add_argument("--width", type=int, default=128)
     p.add_argument("--depth", type=int, default=5)
     p.add_argument("--ctx_sz", type=int, default=50)
     p.add_argument("--fut_sz", type=int, default=100)
-    
+
     # Post-training (RandOpt)
     p.add_argument("--sigma", type=float, default=0.01)
     p.add_argument("--N", type=int, default=300)
@@ -53,7 +53,7 @@ def parse_args(argv=None):
     p.add_argument("--plot_top_1", type=lambda x: x.lower() == 'true', default=False)
     p.add_argument("--plot_random_models", type=lambda x: x.lower() == 'true', default=False)
     p.add_argument("--plot_ensemble", type=lambda x: x.lower() == 'true', default=False)
-    
+
     # Misc
     p.add_argument("--logging_dir", type=str, default="log")
     p.add_argument("--device", type=str, default="0")
@@ -81,13 +81,13 @@ def setup_logging(args):
     ts = datetime.now().strftime('%Y%m%d_%H%M%S')
     logging_dir = f"{args.logging_dir}"
     os.makedirs(logging_dir, exist_ok=True)
-    
+
     # Save args (handle device serialization)
     args_dict = vars(args).copy()
     args_dict['device'] = str(args.device)
     with open(f"{logging_dir}/args.json", "w") as f:
         json.dump(args_dict, f, indent=4)
-    
+
     return logging_dir
 
 
@@ -109,19 +109,19 @@ def create_model_from_seed(seed, base, args):
 
 def main(args):
     set_seed(args.global_seed)
-    
+
     print(f"{'='*60}\n1D curves experiment\n{'='*60}")
     print(f"N: {args.N} | K: {args.K}")
-    
+
     args.logging_dir = setup_logging(args)
-    
+
     ## Create and pretrain base model
     base_model = create_model(args, dim_in=args.ctx_sz)
     if args.pretrain_iters > 0 and args.pretrain_dataset is not None:
         base_model = pretrain.pretrain_base_model(base_model, args.pretrain_dataset, args)
-    
+
     ## Post-train with RandOpt
-    top_k_seeds = posttrain.RandOpt(base_model, args.posttrain_dataset, args, 
+    top_k_seeds = posttrain.RandOpt(base_model, args.posttrain_dataset, args,
         N=args.N, sigma=args.sigma, K=args.K
     )
 
@@ -147,7 +147,7 @@ def main(args):
 
     # ensemble's predictions
     ensemble_preds = torch.stack(top_k_preds).mean(axis=0)
-    
+
     # evaluate prediction mses
     base_mse, base_se = eval.compute_mse(base_preds, fut_y)
     top_1_mse, top_1_se = eval.compute_mse(top_k_preds[0], fut_y)

@@ -1,4 +1,7 @@
-from toy_expts_v4.run import parse_args, main
+# To run: in folder the contains simple_1D_signals_expts, run:
+#   python -m simple_1D_signals_expts.expt_script_generalization
+
+from simple_1D_signals_expts.run import parse_args, main
 
 args = parse_args()
 args.ctx_sz = 10

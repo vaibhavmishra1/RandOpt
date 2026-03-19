@@ -9,7 +9,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
-import toy_expts_v4.datasets as datasets
+import simple_1D_signals_expts.datasets as datasets
 
 
 def _save_fig(args, suffix, timestamp=None):
@@ -55,10 +55,10 @@ def plot_predictions(base_preds, top_k_preds, random_models_preds, ensemble_pred
     gt_color = [0.16, 0.44, 0.73] # deep blue
 
     ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-    
+
     for i in range(3):
         fig, ax = plt.subplots(1, 1, figsize=(8, 8))
-        
+
         ax.plot(fut_x[i].cpu().numpy(), base_preds[i].detach().cpu().numpy(), '-', linewidth=4.5, label=f'Base model', c=base_color)
 
         if args.plot_random_models:
@@ -70,13 +70,13 @@ def plot_predictions(base_preds, top_k_preds, random_models_preds, ensemble_pred
             for j in range(args.num_top_k_models_to_plot):
                 label = 'Top-k perturbs' if j == 0 else None
                 ax.plot(fut_x[i].cpu().numpy(), top_k_preds[j][i].detach().cpu().numpy(), '-', linewidth=2.0, label=label, c=top_k_color)
-        
+
         if args.plot_top_1:
             ax.plot(fut_x[i].cpu().numpy(), top_k_preds[0][i].detach().cpu().numpy(), '-', linewidth=4.0, label=f'Best guess', c=top_1_color)
-        
+
         if args.plot_ensemble:
             ax.plot(fut_x[i].cpu().numpy(), ensemble_preds[i].detach().cpu().numpy(), '-', linewidth=4.0, label=f'Ensemble', c=ensemble_color)
-        
+
         ax.plot(ctx_x[i].cpu().numpy(), ctx_y[i].cpu().numpy(), '-', linewidth=4.0, label='Context', c=ctx_color)
         ax.plot(fut_x[i].cpu().numpy(), fut_y[i].cpu().numpy(), label='Ground truth', linewidth=4.0, linestyle='--', color=gt_color)
 
@@ -84,14 +84,14 @@ def plot_predictions(base_preds, top_k_preds, random_models_preds, ensemble_pred
         if i == 0:
             ax.legend(ncol=2, fontsize=18, loc='lower left')
         ax.tick_params(axis='both', which='both', bottom=False, top=False, left=False, right=False, labelbottom=False, labelleft=False)
-       
+
         _save_fig(args, f"sample{i}", timestamp=ts)
         plt.show()
         plt.close(fig)
 
 def plot_performance(base_mse, base_se, top_1_mse, top_1_se, ensemble_mse, ensemble_se, args):
     plt.rcParams.update({'font.size': 24})
-    
+
     ctx_color = [0.16, 0.44, 0.73] # deep blue
     base_color = 'k' # black
     top_k_color = [0.85, 0.33, 0.25] # muted coral
