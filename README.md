@@ -28,7 +28,7 @@ From the directory containing `RandOpt/`:
 ## Run RandOpt
 
 ### Post-train on your own dataset
-Please follow the instructions [CUSTOM_DATASET_GUIDE.md](CUSTOM_DATASET_GUIDE.md)
+Please follow the instructions in [CUSTOM_DATASET_GUIDE.md](CUSTOM_DATASET_GUIDE.md)
 
 ### Post-train on a standard dataset
 First download the data here: [data/README.md](data/README.md)
@@ -41,8 +41,11 @@ Then, from the `RandOpt` directory:
 | **Multiple nodes** | `sbatch scripts/multiple_nodes.sh` |
 | **Local** (no Slurm) | `bash scripts/local_run.sh` |
 
+## Distill top-k models into a single model
+Please follow the instructions in [distillation/README.md](distillation/README.md).
+
 ## Run Baselines
-Please follow the instructions [baselines/README.md](baselines/README.md)
+Please follow the instructions in [baselines/README.md](baselines/README.md)
 
 
 ## Citation
