@@ -36,11 +36,24 @@ def answer_reward_function(response: str, numbers: List[int] = None, target: int
         return 0.0
 
     answer_content = all_matches[-1]
-    allowed_chars = r"^[0-9+\-*/() ]+$"
+    allowed_chars = r"^[0-9+\-*/()= ]+$"
+    formula_chars = r"^[0-9+\-*/() ]+$"
     if not answer_content:
         return 0.0
     if not re.match(allowed_chars, answer_content):
         return 0.0
+
+    if "=" in answer_content:
+        formula_sides = [side.strip() for side in answer_content.split("=") if side.strip()]
+        matching_sides = [
+            side
+            for side in formula_sides
+            if re.match(formula_chars, side)
+            and sorted(int(n) for n in re.findall(r"\d+", side)) == sorted(numbers)
+        ]
+        if len(matching_sides) != 1:
+            return 0.0
+        answer_content = matching_sides[0]
 
     used_numbers = [int(n) for n in re.findall(r"\d+", answer_content)]
     if sorted(used_numbers) != sorted(numbers):
