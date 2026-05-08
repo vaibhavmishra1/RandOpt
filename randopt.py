@@ -102,14 +102,39 @@ def evaluate_base_model(engines, handler, train_prompts, test_prompts, train_dat
     print(f"\n{'='*60}\nBASE MODEL EVALUATION\n{'='*60}")
     
     train_outputs = ray.get(engines[0].generate.remote(train_prompts, sampling_params, use_tqdm=False))
-    base_train = handler.postprocess_outputs(train_outputs, train_datas)
-    print(f"Train: {base_train*100:.2f}%")
+    base_train_reward = handler.postprocess_outputs(train_outputs, train_datas)
+    print(f"Train reward: {base_train_reward*100:.2f}%")
     
     test_outputs = ray.get(engines[0].generate.remote(test_prompts, sampling_params, use_tqdm=False))
-    base_test = handler.postprocess_outputs(test_outputs, test_datas)
-    print(f"Test:  {base_test*100:.2f}%")
+    correct = 0
+    # base model test evaluation should be consistent with handler's logic for correctness check
+    # which should also be consistent with ensemble evaluation logic (extract answer, validate, then check correctness)
+    # previously base model test "accuracy" was actually computing the reward
+    # base model train is still reward because we want to compare base model's train reward with perturbed models' train rewards
+    for i, output in enumerate(test_outputs):
+        response_text = output.outputs[0].text
+        if handler.name == "countdown":
+            numbers = test_datas[i].get("numbers")
+            answer, is_valid, _ = handler.extract_answer_for_voting(response_text, numbers=numbers)
+            answer = answer if is_valid else ""
+        elif hasattr(handler, 'extract_answer_for_voting'):
+            answer = handler.extract_answer_for_voting(response_text) or ""
+        else:
+            answer = handler.extract_answer(response_text) or ""
+
+        if not answer:
+            continue
+        if hasattr(handler, 'is_voted_answer_correct'):
+            is_correct = handler.is_voted_answer_correct(answer, test_datas[i]["ground_truth"])
+        else:
+            formatted = handler.format_answer_for_check(answer)
+            is_correct = handler.is_answer_correct(formatted, test_datas[i]["ground_truth"])
+        if is_correct:
+            correct += 1
+    base_test_accuracy = correct / len(test_datas) if test_datas else 0.0
+    print(f"Test accuracy: {base_test_accuracy*100:.2f}% ({correct}/{len(test_datas)})")
     
-    return base_train, base_test
+    return base_train_reward, base_test_accuracy
 
 
 def run_sampling(args, engines, handler, train_prompts, train_datas, sampling_params):
@@ -264,7 +289,7 @@ def run_ensemble_evaluation(args, engines, handler, test_prompts, test_datas, to
 
 
 def save_results(args, logging_dir, model_saves_dir, base_model_path, handler, 
-                 base_train, base_test, top_k_perturbs, top_k_rewards, 
+                 base_train_reward, base_test_accuracy, top_k_perturbs, top_k_rewards, 
                  ensemble_results, perf, best_sigma):
     print(f"\n=== Saving Results ===")
     
@@ -295,8 +320,8 @@ def save_results(args, logging_dir, model_saves_dir, base_model_path, handler,
         "model": args.model_name,
         "train_samples": args.train_samples,
         "test_samples": args.test_samples,
-        "base_train_accuracy": base_train,
-        "base_test_accuracy": base_test,
+        "base_train_reward": base_train_reward,
+        "base_test_accuracy": base_test_accuracy,
         "sigma_stats": sigma_stats,
         "best_sigma": best_sigma,
         "ensemble_results": {str(k): v for k, v in ensemble_results.items()},
@@ -337,10 +362,11 @@ def main(args):
         top_k_perturbs = [(m["seed"], m["sigma"]) for m in saved["top_k_models"]]
         top_k_rewards = [m["train_reward"] for m in saved["top_k_models"]]
         
-        # Load previous results for base accuracies
+        # Load previous results for base metrics
         with open(f"{args.resume_dir}/results.json", "r") as f:
             prev_results = json.load(f)
-        base_train, base_test = prev_results["base_train_accuracy"], prev_results["base_test_accuracy"]
+        base_train_reward = prev_results.get("base_train_reward", prev_results.get("base_train_accuracy"))
+        base_test_accuracy = prev_results["base_test_accuracy"]
         perf = {(s, sig): r for (s, sig), r in zip(top_k_perturbs, top_k_rewards)}
         
         logging_dir = f"{args.experiment_dir}/{args.dataset}_resume_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -382,7 +408,7 @@ def main(args):
     
     try:
         if not is_resume:
-            base_train, base_test = evaluate_base_model(
+            base_train_reward, base_test_accuracy = evaluate_base_model(
                 engines, handler, train_prompts, test_prompts, train_datas, test_datas, sampling_params)
             
             # Perturbation sampling
@@ -406,10 +432,10 @@ def main(args):
         
         # Ensemble evaluation
         ensemble_results = run_ensemble_evaluation(
-            args, engines, handler, test_prompts, test_datas, top_k_perturbs, sampling_params, base_test)
+            args, engines, handler, test_prompts, test_datas, top_k_perturbs, sampling_params, base_test_accuracy)
         
         save_results(args, logging_dir, model_saves_dir, base_model_path, handler,
-                    base_train, base_test, top_k_perturbs, top_k_rewards,
+                    base_train_reward, base_test_accuracy, top_k_perturbs, top_k_rewards,
                     ensemble_results, perf, best_sigma)
     
     finally:
