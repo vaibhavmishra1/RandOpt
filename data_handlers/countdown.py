@@ -113,14 +113,32 @@ class CountdownHandler(DatasetHandler):
         if not formula:
             return "", False, {"reason": "no_answer", "formula": ""}
         
-        # Validate: only allow numbers and basic operators
-        if not FORMULA_ALLOWED_CHARS.match(formula):
+        # Validate: only allow numbers, basic operators, and optional equality.
+        allowed_chars = re.compile(r"^[0-9+\-*/()= ]+$")
+        if not allowed_chars.match(formula):
             return "", False, {"reason": "invalid_chars", "formula": formula[:100]}
-        
-        # Check if formula uses exactly the given numbers
+
+        # If the model wrote an equation, keep the side that uses exactly the given numbers.
         is_valid = False
         used_numbers = None
         if numbers is not None:
+            expected_numbers = sorted(numbers)
+            if "=" in formula:
+                formula_sides = [side.strip() for side in formula.split("=") if side.strip()]
+                matching_sides = [
+                    side
+                    for side in formula_sides
+                    if FORMULA_ALLOWED_CHARS.match(side)
+                    and sorted(int(n) for n in re.findall(r"\d+", side)) == expected_numbers
+                ]
+                if len(matching_sides) != 1:
+                    return "", False, {
+                        "reason": "invalid_equation",
+                        "formula": formula[:100],
+                        "expected": expected_numbers,
+                    }
+                formula = matching_sides[0]
+
             used_numbers = [int(n) for n in re.findall(r"\d+", formula)]
             # Reject formulas with absurdly large numbers (likely model hallucination)
             if any(n > MAX_FORMULA_NUMBER for n in used_numbers):
