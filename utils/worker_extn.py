@@ -46,15 +46,59 @@ class WorkerExtension:
     # Prefixes of visual encoder parameters to skip during perturbation (for VL models)
     _VISUAL_PREFIXES = ("visual.", "model.visual.")
 
+    def _filter_attrs(self):
+        """Read user-configured perturbation filter (set via set_perturb_filter)."""
+        return (
+            getattr(self, "_perturb_include_substrings", None) or [],
+            getattr(self, "_perturb_exclude_substrings", None) or [],
+            getattr(self, "_perturb_layer_min", None),
+            getattr(self, "_perturb_layer_max", None),
+        )
+
+    def set_perturb_filter(self, include_substrings=None, exclude_substrings=None,
+                            layer_min=None, layer_max=None):
+        """
+        Configure a global perturbation filter on this worker. After this call,
+        ANY perturbation method that goes through _should_perturb (including
+        perturb_self_weights, restore_self_weights, apply_perturbation,
+        apply_averaged_perturbations, update_weights_from_seeds) will skip
+        params that don't match the filter — i.e., those params remain at
+        their base values.
+
+        Filter semantics (a name passes if ALL of the following hold):
+          - does NOT contain any string in exclude_substrings
+          - contains at least one string in include_substrings
+              (or include_substrings is empty)
+          - if layer_min/layer_max set: param must be inside a transformer
+              layer with that index in [layer_min, layer_max]
+
+        Pass include_substrings=exclude_substrings=None and layer_min=layer_max=None
+        to clear the filter.
+        """
+        self._perturb_include_substrings = list(include_substrings or [])
+        self._perturb_exclude_substrings = list(exclude_substrings or [])
+        self._perturb_layer_min = layer_min
+        self._perturb_layer_max = layer_max
+        return {
+            "include": self._perturb_include_substrings,
+            "exclude": self._perturb_exclude_substrings,
+            "layer_min": layer_min,
+            "layer_max": layer_max,
+        }
+
     def _should_perturb(self, name: str) -> bool:
         """Check if a parameter should be perturbed.
-        
-        By default, skips visual encoder params for VL models.
-        Set env PERTURB_VISUAL=1 to also perturb visual encoder.
+
+        Skips: (a) visual encoder params (set env PERTURB_VISUAL=1 to override),
+               (b) params filtered out by set_perturb_filter (if any).
         """
-        if os.environ.get("PERTURB_VISUAL", "0") == "1":
-            return True  # Perturb ALL parameters including visual encoder
-        return not name.startswith(self._VISUAL_PREFIXES)
+        if os.environ.get("PERTURB_VISUAL", "0") != "1":
+            if name.startswith(self._VISUAL_PREFIXES):
+                return False
+        inc, exc, lmin, lmax = self._filter_attrs()
+        if not (inc or exc or lmin is not None or lmax is not None):
+            return True  # No user filter set, allow all
+        return self._matches_filter(name, inc, exc, lmin, lmax)
 
     def _set_seed(self, seed):
         # set a seed locally on the worker extension for reproducibility

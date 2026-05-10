@@ -59,6 +59,19 @@ def parse_args():
     parser.add_argument("--resume_dir", type=str, default=None,
                         help="Resume from a previous run directory (skips sampling, goes directly to ensemble eval)")
 
+    # Perturbation filter — restricts which params are perturbed. Useful for
+    # ablation experiments like "freeze attention" or "MLP-only RandOpt".
+    parser.add_argument("--perturb_exclude", type=str, default="",
+                        help="Comma-separated substrings; params whose name contains "
+                             "any are NOT perturbed (e.g. 'self_attn' to freeze attention).")
+    parser.add_argument("--perturb_include", type=str, default="",
+                        help="If set, only params whose name contains any listed "
+                             "substring are perturbed (e.g. 'mlp').")
+    parser.add_argument("--perturb_layer_min", type=int, default=None,
+                        help="If set, only perturb params in transformer layers >= this index.")
+    parser.add_argument("--perturb_layer_max", type=int, default=None,
+                        help="If set, only perturb params in transformer layers <= this index.")
+
     # vLLM throughput knobs (cranked defaults for max GPU utilization)
     parser.add_argument("--gpu_memory_utilization", type=float, default=0.92)
     parser.add_argument("--enforce_eager", action="store_true",
@@ -425,6 +438,27 @@ def main(args):
         max_model_len=args.max_model_len,
         kv_cache_dtype=args.kv_cache_dtype,
     )
+
+    # If a perturbation filter was requested, configure all engines now.
+    inc = [s.strip() for s in args.perturb_include.split(",") if s.strip()]
+    exc = [s.strip() for s in args.perturb_exclude.split(",") if s.strip()]
+    if inc or exc or args.perturb_layer_min is not None or args.perturb_layer_max is not None:
+        print(f"\n*** PERTURBATION FILTER ACTIVE ***")
+        print(f"  include: {inc or '(all)'}")
+        print(f"  exclude: {exc or '(none)'}")
+        print(f"  layers : [{args.perturb_layer_min}, {args.perturb_layer_max}]")
+        ray.get([
+            e.collective_rpc.remote(
+                "set_perturb_filter",
+                kwargs=dict(
+                    include_substrings=inc,
+                    exclude_substrings=exc,
+                    layer_min=args.perturb_layer_min,
+                    layer_max=args.perturb_layer_max,
+                ),
+            )
+            for e in engines
+        ])
     
     try:
         if not is_resume:

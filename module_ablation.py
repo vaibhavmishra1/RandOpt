@@ -123,6 +123,8 @@ def parse_args():
     p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     p.add_argument("--baseline_dir", required=True,
                    help="A completed RandOpt run dir (must contain model_saves/top_k_seeds.json).")
+    p.add_argument("--model_name", type=str, default=None,
+                   help="Override base model path. If omitted, reads from baseline_dir/top_k_seeds.json.")
     p.add_argument("--top_k", type=int, default=3,
                    help="How many top winners (from baseline) to ablate.")
     p.add_argument("--train_samples", type=int, default=200)
@@ -172,7 +174,13 @@ def main(args):
     with open(results_path) as f:
         prev_results = json.load(f)
 
-    base_model = seeds_blob["base_model_path"]
+    saved_model = seeds_blob["base_model_path"]
+    if args.model_name and args.model_name != saved_model:
+        print(f"WARNING: --model_name override ({args.model_name}) differs from "
+              f"baseline run's saved model ({saved_model}). Seeds were generated for "
+              f"the saved model — perturbations may not be valid on a different "
+              f"architecture / param shapes.")
+    base_model = args.model_name or saved_model
     dataset_name = prev_results["dataset"]
     top_k_models = seeds_blob["top_k_models"][: args.top_k]
     print(f"Baseline run:  {args.baseline_dir}")
