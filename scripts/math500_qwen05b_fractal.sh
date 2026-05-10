@@ -45,4 +45,8 @@ python3 fractal_randopt.py \
   --max_tokens 2048 \
   --global_seed 42 \
   --experiment_dir "experiments/math500_qwen05b_fractal" \
-  --cuda_devices "$CUDA_DEVICES"
+  --cuda_devices "$CUDA_DEVICES" \
+  --gpu_memory_utilization 0.92 \
+  --max_num_seqs 512 \
+  --max_num_batched_tokens 16384 \
+  --max_model_len 3072

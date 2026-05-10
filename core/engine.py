@@ -16,7 +16,7 @@ class RandOptNcclLLM(LLM):
         super().__init__(*args, **kwargs)
 
 
-def launch_engines(num_engines: int, model_name: str, precision: str = "bfloat16", batch_size: int = 25, tensor_parallel_size: int = 1, enable_prefix_caching: bool = False, gpu_memory_utilization: float = 0.75, multimodal: bool = False):
+def launch_engines(num_engines: int, model_name: str, precision: str = "bfloat16", batch_size: int = 25, tensor_parallel_size: int = 1, enable_prefix_caching: bool = False, gpu_memory_utilization: float = 0.90, multimodal: bool = False, enforce_eager: bool = False, max_num_seqs: int = 512, max_num_batched_tokens: int = 16384, max_model_len: int | None = None, kv_cache_dtype: str = "auto"):
     """Launch vLLM engines on Ray with batched initialization.
     
     Args:
@@ -104,10 +104,15 @@ def launch_engines(num_engines: int, model_name: str, precision: str = "bfloat16
             worker_extension_cls="utils.worker_extn.WorkerExtension",
             dtype=precision,
             enable_prefix_caching=enable_prefix_caching,
-            enforce_eager=True,
+            enforce_eager=enforce_eager,
             gpu_memory_utilization=gpu_memory_utilization,
+            max_num_seqs=max_num_seqs,
+            max_num_batched_tokens=max_num_batched_tokens,
+            kv_cache_dtype=kv_cache_dtype,
             disable_log_stats=True,
         )
+        if max_model_len is not None:
+            engine_kwargs["max_model_len"] = max_model_len
         if multimodal:
             engine_kwargs["limit_mm_per_prompt"] = {"image": 1}
         

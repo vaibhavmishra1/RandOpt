@@ -84,6 +84,21 @@ def parse_args():
     parser.add_argument("--global_seed", type=int, default=42)
     parser.add_argument("--experiment_dir", type=str, default="fractal-experiment")
 
+    # vLLM throughput knobs (cranked defaults for max GPU utilization)
+    parser.add_argument("--gpu_memory_utilization", type=float, default=0.92,
+                        help="Fraction of GPU memory vLLM may use (KV cache + activations). 0.90-0.95 is aggressive.")
+    parser.add_argument("--enforce_eager", action="store_true",
+                        help="Disable CUDA graphs (slower). Default: graphs enabled.")
+    parser.add_argument("--max_num_seqs", type=int, default=512,
+                        help="Max concurrent sequences in vLLM scheduler. Higher = better batch packing.")
+    parser.add_argument("--max_num_batched_tokens", type=int, default=16384,
+                        help="Max total tokens per forward step.")
+    parser.add_argument("--max_model_len", type=int, default=None,
+                        help="Cap context length to bound KV cache memory. None = use model's default.")
+    parser.add_argument("--kv_cache_dtype", type=str, default="auto",
+                        choices=["auto", "fp8", "fp8_e4m3", "fp8_e5m2"],
+                        help="fp8 halves KV-cache memory; usually no quality hit on inference.")
+
     args = parser.parse_args()
 
     # Build sigma schedule
@@ -415,10 +430,17 @@ def main(args):
     test_prompts = [format_prompt(d["messages"]) for d in test_datas]
     sampling_params = SamplingParams(temperature=0.0, seed=args.global_seed, max_tokens=max_tokens)
 
-    # Engines
+    # Engines (cranked vLLM throughput settings)
     engines, pgs = launch_engines(
         args.num_engines, args.model_name,
-        precision=args.precision, tensor_parallel_size=args.tp,
+        precision=args.precision,
+        tensor_parallel_size=args.tp,
+        gpu_memory_utilization=args.gpu_memory_utilization,
+        enforce_eager=args.enforce_eager,
+        max_num_seqs=args.max_num_seqs,
+        max_num_batched_tokens=args.max_num_batched_tokens,
+        max_model_len=args.max_model_len,
+        kv_cache_dtype=args.kv_cache_dtype,
     )
 
     seed_rng = np.random.default_rng(seed=args.global_seed)

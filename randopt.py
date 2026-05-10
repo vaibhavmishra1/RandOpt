@@ -58,6 +58,16 @@ def parse_args():
     parser.add_argument("--experiment_dir", type=str, default="es-experiment")
     parser.add_argument("--resume_dir", type=str, default=None,
                         help="Resume from a previous run directory (skips sampling, goes directly to ensemble eval)")
+
+    # vLLM throughput knobs (cranked defaults for max GPU utilization)
+    parser.add_argument("--gpu_memory_utilization", type=float, default=0.92)
+    parser.add_argument("--enforce_eager", action="store_true",
+                        help="Disable CUDA graphs (slower). Default: graphs enabled.")
+    parser.add_argument("--max_num_seqs", type=int, default=512)
+    parser.add_argument("--max_num_batched_tokens", type=int, default=16384)
+    parser.add_argument("--max_model_len", type=int, default=None)
+    parser.add_argument("--kv_cache_dtype", type=str, default="auto",
+                        choices=["auto", "fp8", "fp8_e4m3", "fp8_e5m2"])
     
     args = parser.parse_args()
     
@@ -403,8 +413,18 @@ def main(args):
     test_prompts = [format_prompt(d["messages"]) for d in test_datas]
     sampling_params = SamplingParams(temperature=0.0, seed=args.global_seed, max_tokens=max_tokens)
     
-    # Launch engines
-    engines, pgs = launch_engines(args.num_engines, base_model_path, precision=args.precision, tensor_parallel_size=args.tp)
+    # Launch engines (cranked vLLM throughput settings)
+    engines, pgs = launch_engines(
+        args.num_engines, base_model_path,
+        precision=args.precision,
+        tensor_parallel_size=args.tp,
+        gpu_memory_utilization=args.gpu_memory_utilization,
+        enforce_eager=args.enforce_eager,
+        max_num_seqs=args.max_num_seqs,
+        max_num_batched_tokens=args.max_num_batched_tokens,
+        max_model_len=args.max_model_len,
+        kv_cache_dtype=args.kv_cache_dtype,
+    )
     
     try:
         if not is_resume:
