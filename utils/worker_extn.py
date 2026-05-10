@@ -225,7 +225,7 @@ class WorkerExtension:
         """Apply perturbation from base weights (not current weights)."""
         if not hasattr(self, '_base_weights'):
             raise RuntimeError("Must call store_base_weights first")
-        
+
         self._set_seed(seed)
         for name, p in self.model_runner.model.named_parameters():
             # Restore base weights first
@@ -241,6 +241,82 @@ class WorkerExtension:
             torch.cuda.synchronize()
         torch.cuda.empty_cache()
         return True
+
+    # ---- Module-ablation: filtered perturbations ----------------------------
+
+    @staticmethod
+    def _extract_layer_idx(name: str):
+        """Return the integer layer index from a param name like
+        'model.layers.7.self_attn.q_proj.weight', or None if not in a layer."""
+        import re
+        m = re.search(r"\.layers\.(\d+)\.", name)
+        return int(m.group(1)) if m else None
+
+    def _matches_filter(self, name: str, include_substrings, exclude_substrings,
+                        layer_min, layer_max):
+        """Decide if `name` is in the perturbation filter set."""
+        if exclude_substrings:
+            for s in exclude_substrings:
+                if s in name:
+                    return False
+        if include_substrings:
+            if not any(s in name for s in include_substrings):
+                return False
+        if layer_min is not None or layer_max is not None:
+            idx = self._extract_layer_idx(name)
+            if idx is None:
+                # Not a per-layer param (e.g. embed_tokens, lm_head, model.norm).
+                # Only include it if no layer constraint was requested.
+                return False
+            if layer_min is not None and idx < layer_min:
+                return False
+            if layer_max is not None and idx > layer_max:
+                return False
+        return True
+
+    def apply_perturbation_filtered(self, seed, sigma,
+                                    include_substrings=None,
+                                    exclude_substrings=None,
+                                    layer_min=None, layer_max=None):
+        """
+        Apply seed-based perturbation only to params that match the filter.
+        Params NOT matching are reset to base weights (no noise added).
+
+        This lets us localize *where in the network* a winning perturbation's
+        gain comes from by ablating the noise on subsets of params.
+        """
+        if not hasattr(self, '_base_weights'):
+            raise RuntimeError("Must call store_base_weights first")
+        self._set_seed(seed)
+
+        n_perturbed, n_skipped = 0, 0
+        for name, p in self.model_runner.model.named_parameters():
+            # Always reset to base first
+            p.data.copy_(self._base_weights[name])
+
+            if not self._should_perturb(name):
+                n_skipped += 1
+                continue
+            if not self._matches_filter(name, include_substrings, exclude_substrings,
+                                        layer_min, layer_max):
+                n_skipped += 1
+                continue
+
+            gen = torch.Generator(device=p.device)
+            gen.manual_seed(int(seed))
+            noise = torch.randn(p.shape, dtype=p.dtype, device=p.device, generator=gen)
+            p.data.add_(float(sigma) * noise)
+            n_perturbed += 1
+            del noise
+
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        torch.cuda.empty_cache()
+        return {"n_perturbed": n_perturbed, "n_skipped": n_skipped}
+
+    def list_param_names(self):
+        """Return all parameter names (for filter validation/debugging)."""
+        return [n for n, _ in self.model_runner.model.named_parameters()]
     
     def reset_to_base_weights(self):
         """Reset model weights to stored base weights."""

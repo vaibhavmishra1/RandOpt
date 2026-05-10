@@ -14,9 +14,11 @@ TEST_DATA_PATH="data/math-500/test.jsonl"
 DEPTH=4
 SAMPLES_PER_LEVEL=64
 
-# Geometric sigma annealing: 0.002 -> 0.001 -> 0.0005 -> 0.00025
-SIGMA_START=0.002
-SIGMA_DECAY=0.5
+# Geometric sigma annealing, anchored at the empirically-best sigma from
+# the flat baseline (σ=0.0005 was the only productive scale for Qwen-0.5B).
+# Schedule: 0.0005 -> 0.00035 -> 0.000245 -> 0.0001715
+SIGMA_START=0.0005
+SIGMA_DECAY=0.7
 
 TP=1
 NUM_GPUS="$(awk -F',' '{print NF}' <<< "$CUDA_DEVICES")"
